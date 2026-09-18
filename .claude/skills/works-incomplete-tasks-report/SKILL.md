@@ -1,6 +1,6 @@
 ---
 name: works-incomplete-tasks-report
-description: Pull incomplete-task lists from LINE Works Project (플랫폼_워크스페이스) — full workspace or filtered to specific project name(s) — and build the 13-column hierarchical Excel report Jocelyn uses, including the weekly automated version.
+description: Pull incomplete-task lists from LINE Works Project (플랫폼_워크스페이스) — full workspace or filtered to specific project name(s) — and build the 15-column hierarchical Excel report Jocelyn uses, including the weekly automated version.
 ---
 
 # LINE Works Project — 미완료 업무 리스트 (Incomplete Tasks Report)
@@ -49,15 +49,15 @@ Default scope is 플랫폼_워크스페이스 only — never other spaces unless
 
 Do **not** sort by 기한 (due date) at all, ascending or descending — that criterion was explicitly removed and should not reappear even as a tiebreaker.
 
-## Output format — 13 columns, in this exact order
+## Output format — 15 columns, in this exact order
 
-프로젝트명 / 유형 / 업무구분 / 어플리케이션 / 업무명 / 업무구분 : 하위업무 / (하위업무) 업무명 / 기한 / 담당자 / 진행상태 / 생성일 / 생성자 / 요청기한
+프로젝트명 / 유형 / 업무구분 / 어플리케이션 / 업무명 / 업무구분 : 하위업무 / (하위업무) 업무명 / 기한 / 시작일 / 마감일 / 담당자 / 진행상태 / 생성일 / 생성자 / 요청기한
 
 Subtask display rule (this is the current, final format — supersedes any older flag-based single-column 업무구분 layout):
 
 - **Top-level (최상위) task row**: fill 유형 / 업무구분(값: "업무") / 어플리케이션 / 업무명. Leave "업무구분 : 하위업무" and "(하위업무) 업무명" blank.
 - **Subtask row**: leave 유형 / 업무구분 / 어플리케이션 / 업무명 blank. Fill "업무구분 : 하위업무" with the subtask's *own* 어플리케이션 값 (it can differ from the parent's), and "(하위업무) 업무명" with the subtask's title.
-- 담당자 / 진행상태 / 생성일 / 생성자 / 기한 / 요청기한: filled per-row for both top-level and subtask rows, each using its own values.
+- 담당자 / 진행상태 / 생성일 / 생성자 / 기한 / 시작일 / 마감일 / 요청기한: filled per-row for both top-level and subtask rows, each using its own values.
 - Empty/missing values render as `-`.
 
 ## Reliable bulk extraction out of the browser tab
@@ -69,7 +69,7 @@ Subtask display rule (this is the current, final format — supersedes any older
    `(function(){const s=<start>,e=<end>;const c=window.__pipeText.slice(s,e);return c+'<<<END'+c.length+'>>>';})()`
 3. **Every chunk must be verified**: confirm the number after `<<<END` matches the actual chunk length before trusting it. Silent truncation (missing trailing content with no `[TRUNCATED]` indicator) has occurred with naive slicing — the marker catches this.
 4. Batch multiple slice-read calls together via `browser_batch` in one round trip when there are several chunks.
-5. Reconstruct the full text by concatenating verified chunks in order (a small Python script that strips tool-output prefixes and `<<<ENDnnn>>>` markers works well for this), then verify: total reconstructed length matches the sum of chunk marker lengths, line count matches expected row count + 1 header, and every data line has exactly 12 `|` separators (13 columns).
+5. Reconstruct the full text by concatenating verified chunks in order (a small Python script that strips tool-output prefixes and `<<<ENDnnn>>>` markers works well for this), then verify: total reconstructed length matches the sum of chunk marker lengths, line count matches expected row count + 1 header, and every data line has exactly 14 `|` separators (15 columns).
 
 ### Tab-group instability workaround
 
@@ -83,9 +83,9 @@ Follow `/mnt/skills/public/xlsx/SKILL.md` conventions (openpyxl, no hardcoded fo
 - Header row fill: solid `4472C4` (blue), header font white bold, centered, thin light-gray (`D9D9D9`) borders on every cell.
 - Title row: merged across all columns, left-aligned, size 12 bold, text like `"AGL {scope} - 완료되지 않은 업무 리스트 (생성일: {오늘 날짜 YYYY-MM-DD})"` where `{scope}` is `"플랫폼_워크스페이스"` for the full report or the specific project name for a filtered extract.
 - Freeze panes below the header row; autofilter on the header row.
-- Center-align columns: 유형, 업무구분, 업무구분 : 하위업무, 기한, 진행상태, 생성일, 요청기한. Left-align + wrap columns: 어플리케이션, 업무명, (하위업무) 업무명, 담당자, 생성자.
+- Center-align columns: 유형, 업무구분, 업무구분 : 하위업무, 기한, 시작일, 마감일, 진행상태, 생성일, 요청기한. Left-align + wrap columns: 어플리케이션, 업무명, (하위업무) 업무명, 담당자, 생성자.
 - Merge consecutive cells in the 프로젝트명 column that share the same value (group visually rather than repeating the project name every row).
-- Tune column widths per column (프로젝트명 ~26, 유형 ~14, 업무구분 ~10, 어플리케이션 ~16, 업무명 ~40, 업무구분 : 하위업무 ~14, (하위업무) 업무명 ~40, 기한 ~11, 담당자 ~16, 진행상태 ~12, 생성일 ~11, 생성자 ~10, 요청기한 ~11).
+- Tune column widths per column (프로젝트명 ~26, 유형 ~14, 업무구분 ~10, 어플리케이션 ~16, 업무명 ~40, 업무구분 : 하위업무 ~14, (하위업무) 업무명 ~40, 기한 ~11, 시작일 ~11, 마감일 ~11, 담당자 ~16, 진행상태 ~12, 생성일 ~11, 생성자 ~10, 요청기한 ~11).
 
 ## Filenames and delivery
 
