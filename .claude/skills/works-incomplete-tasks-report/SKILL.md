@@ -58,6 +58,7 @@ Subtask display rule (this is the current, final format — supersedes any older
 - **Top-level (최상위) task row**: fill 유형 / 업무구분(값: "업무") / 어플리케이션 / 업무명. Leave "업무구분 : 하위업무" and "(하위업무) 업무명" blank.
 - **Subtask row**: leave 유형 / 업무구분 / 어플리케이션 / 업무명 blank. Fill "업무구분 : 하위업무" with the subtask's *own* 어플리케이션 값 (it can differ from the parent's), and "(하위업무) 업무명" with the subtask's title.
 - 담당자 / 진행상태 / 생성일 / 생성자 / 기한 / 시작일 / 마감일 / 요청기한: filled per-row for both top-level and subtask rows, each using its own values.
+- 기한 / 시작일 / 마감일 are three independent fields — pull each from its own custom field/value and never derive or copy one from another, even when a task's underlying data happens to make two of them equal.
 - Empty/missing values render as `-`.
 
 ## Reliable bulk extraction out of the browser tab
