@@ -51,7 +51,9 @@ Do **not** sort by 기한 (due date) at all, ascending or descending — that cr
 
 ## Output format — 16 columns, in this exact order
 
-프로젝트명 / 유형 / 사업영향 / 업무구분 / 어플리케이션 / 업무명 / 업무구분 : 하위업무 / (하위업무) 업무명 / 기한 / 시작일 / 마감일 / 담당자 / 진행상태 / 생성일 / 생성자 / 요청기한
+프로젝트명 / 유형 / 사업영향 / 업무구분 / 어플리케이션 / 업무명 / 업무구분 : 하위업무 / (하위업무) 업무명 / 진행상태 / 기한 / 시작일 / 마감일 / 담당자 / 생성일 / 생성자 / 요청기한
+
+진행상태 sits immediately after "(하위업무) 업무명" — right after 업무명 for a top-level row (since the two subtask-name columns are blank there) and right after "(하위업무) 업무명" itself for a subtask row (since 업무명 is blank there). One column position satisfies both placements because the two name columns are mutually exclusive per row.
 
 Subtask display rule (this is the current, final format — supersedes any older flag-based single-column 업무구분 layout):
 
