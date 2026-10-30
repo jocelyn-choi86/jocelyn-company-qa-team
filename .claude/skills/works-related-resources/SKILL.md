@@ -3,7 +3,7 @@ name: "works-related-resources"
 description: LINE Works Project(project.worksmobile.com, 단축링크 works.do)의 업무(task) 링크 하나를 받아, 그 업무에 "관련 리소스"로 연결된 업무들을 뽑아 정해진 포맷의 표 두 개(상세 리스트 + 어플리케이션×유형 카운트 매트릭스)로 정리한다. 사용자가 works.do 링크나 project.worksmobile.com 링크를 주면서 "관련 리소스 정리해줘", "배포 목록 뽑아줘", "유형별/완료여부/처리자 정리해줘", "애플리케이션별 카운트 내줘" 같은 요청을 하면 반드시 이 스킬을 사용한다. 링크만 던지고 별다른 설명이 없어도, 그 링크가 LINE Works Project 도메인이면 이 스킬이 적용 대상이다.
 ---
 
-# 배포 목록 관리
+# LINE Works Project 관련 리소스 리포트
 
 ## 이 스킬이 하는 일
 
@@ -13,6 +13,13 @@ LINE Works Project 업무 링크 하나를 입력받아, 그 업무에 "관련 �
 - **표2**: 표1에 들어간 항목만 대상으로 한 어플리케이션×유형 카운트 매트릭스
 
 인자로 works.do 단축 링크 또는 project.worksmobile.com 업무 상세 URL을 받는다. 인자가 없으면 사용자에게 링크를 물어본다.
+
+### 프로젝트 뷰 링크 + 제목 조건으로 요청받은 경우
+
+업무 링크 대신 프로젝트 뷰 URL(`/space/{domainId}/s-.../p-{...}/pv-...`)과 "업무제목에 [2026-10-28] 포함" 같은 조건을 받을 수 있다.
+- URL의 `p-...` 세그먼트 전체(예: `p-300018117-808c56fb-...`)가 projectId다. `p-`를 떼면 404가 난다.
+- `GET /rd/{domainId}/api/v1/tasks?projectId={projectId}`로 업무 목록을 받아 제목에 조건 문자열이 포함된 업무들을 **원본 업무**로 삼는다(예: `2026-10-28 정기배포_GDS/_TB/_ADMIN`).
+- 원본 업무가 여러 개면 각각의 관련 리소스를 합치고 중복(같은 relatedTaskId)은 1건으로 처리한다. 원본 업무끼리 서로 연결돼 있어도 표에는 넣지 않는다.
 
 ## 사전 조건: 로그인 세션
 
@@ -38,27 +45,29 @@ project.worksmobile.com은 사내 인증이 필요한 시스템이라 `WebFetch`
    - `status.taskStatusType` → **완료여부 판단의 유일한 기준**. `OPEN`이면 미완료, 그 외 값이면 완료로 본다. (주의: 화면에 보이는 체크마크 아이콘은 "업무" 타입을 나타내는 아이콘일 뿐 완료 표시가 아니다 — 아이콘 색이나 모양으로 완료 여부를 추측하지 말 것.)
    - `status.lastModified` → **완료일**. 완료일은 커스텀필드가 아니라 LINE Works 기본(시스템) 항목이고, 화면 목록의 [완료일] 컬럼 값은 완료 상태 업무의 `status.lastModified`와 분 단위까지 일치한다(실제 대조 확인). Asia/Seoul 기준 `YYYY-MM-DD`로 변환한다. `OPEN`(미완료)이면 완료일은 `–`.
    - `mainProjectId` → 소속 프로젝트 식별, 다음 단계에서 이름/커스텀필드 조회에 사용
-   - 하위 업무 목록 → 응답에서 하위 업무를 가리키는 필드(예: `subTasks`, `childTasks`, `subTaskIds` 등)를 확인한다. 필드명을 하드코딩하지 말고 실제 응답에서 찾는다. 상세 응답에 없으면 4단계의 프로젝트 업무 목록에서 `parentTaskId`(또는 유사 필드)가 해당 업무 ID인 항목을 하위 업무로 본다. 하위 업무가 다른 프로젝트 소속일 수 있으므로 하위 업무도 동일하게 단건 조회 → 4단계 매핑을 거친다.
+   - 하위 업무 목록 → 단건 응답의 `subTaskIds` 배열(실제 확인됨). 없으면 4단계의 프로젝트 업무 목록에서 `parentTaskId`(또는 유사 필드)가 해당 업무 ID인 항목을 하위 업무로 본다. 하위 업무가 다른 프로젝트 소속일 수 있으므로 하위 업무도 동일하게 단건 조회 → 4단계 매핑을 거친다.
 
    **중요**: 이 단건 조회 응답(`task` 객체)에는 `customFieldValues`가 들어있지 않다 (실제로 확인됨 — `relatedResources`, `status`, `due` 등은 있지만 커스텀필드 값 자체는 빠져 있음). 유형/애플리케이션/처리자 값은 다음 단계에서 별도로 가져와야 한다.
 
 4. **커스텀필드 값 + 라벨 매핑**: 각 항목의 `mainProjectId`에 대해 두 번 호출한다.
-   - `GET /rd/{domainId}/api/v1/projects/{mainProjectId}` → `project.projectName`(소속 프로젝트 이름), `project.customFields`(필드 정의)를 얻는다. `customFields` 배열에서 `fieldName`이 "유형"인 `SingleSelectCustomField`, "애플리케이션"인 `MultiSelectCustomField`, "처리자"인 `MemberCustomField`를 찾는다 (정확한 필드명은 조직/프로젝트마다 조금씩 다를 수 있으니 유사한 이름도 확인). 각 필드의 `selectItems` 배열이 `id → value(라벨)` 매핑이다.
+   - `GET /rd/{domainId}/api/v1/projects/{mainProjectId}` → `project.projectName`(소속 프로젝트 이름), `project.customFields`(필드 정의)를 얻는다. `customFields` 배열에서 `fieldName`이 "유형"인 `SingleSelectCustomField`, "애플리케이션"/"어플리케이션"인 `MultiSelectCustomField`, "처리자"인 `MemberCustomField`를 찾는다 (프로젝트마다 두 표기가 섞여 있으니 둘 다 확인. 이름은 정확히 일치로 비교 — 부분일치로 찾으면 "진행상태" 등 다른 필드가 걸릴 수 있다). 각 필드의 `selectItems` 배열이 `id → value(라벨)` 매핑이다.
+   - **필드 정의의 키는 `fieldId`다(`id` 아님).** 값 쪽 `customFieldValues[].fieldId`와 `customFields[].fieldId`를 매칭한다. `id`로 비교하면 전부 "미지정"이 나온다.
    - `GET /rd/{domainId}/api/v1/tasks?projectId={mainProjectId}` → 응답의 `projectTasks` 배열에서 `taskId`가 일치하는 항목을 찾으면 그 안에 실제 `customFieldValues`(fieldId, selectItemId/selectItemIds/memberIds)가 들어있다. 이걸 위에서 얻은 `selectItems` 매핑으로 라벨로 바꾼다. 응답이 페이지 단위로 나뉘어 있으면(커서/다음 페이지 값 등) 해당 `taskId`를 찾을 때까지 다음 페이지를 이어서 조회한다 — 첫 페이지에 없다고 "미지정"으로 처리하지 않는다.
    - **완료일은 커스텀필드에서 찾지 않는다.** 3단계의 `status.lastModified`를 쓴다. `due.start`/`due.end`(기한)를 완료일로 대신 쓰지도 않는다.
    - **프로젝트마다 이 커스텀필드들이 아예 없을 수 있다.** 하드코딩된 필드ID를 재사용하지 말고 프로젝트마다 매번 새로 조회해서 매핑할 것. 필드가 없거나 값이 비어있으면 "미지정"으로 표기한다.
-   - 처리자(`MemberCustomField`)는 `memberIds`만 나온다. 이름이 필요하면 해당 업무 상세 화면을 열어 표시되는 이름을 확인하거나, 팀 연락처 조회 API(`getContactUsers` 등)로 매핑한다.
+   - 처리자(`MemberCustomField`)는 `memberIds`만 나온다. 이름은 `POST /api/v1/getContactUsers`(도메인 prefix 없음), body `{"ids":["userId", ...]}`, `content-type: application/json`으로 조회해 `userId → name`으로 매핑한다. (`userIds` 등 다른 키로 보내면 500 에러.)
 
 ## 표1: 리스트
 
 컬럼 순서를 고정한다:
 
-| 어플리케이션 | 유형 | 항목명 | 기한 | 완료여부 | 완료일 | 처리자 | 소속 프로젝트 |
+| 어플리케이션 | 유형 | 구분 | 항목명 | 기한 | 완료여부 | 완료일 | 처리자 | 소속 프로젝트 |
 
+- 구분: 관련 리소스로 연결된 업무는 `상위`, 다중선택 업무 아래에 붙여 표시하는 하위 업무는 `하위`.
 - 기한: `due.start ~ due.end`.
 - 완료일: 완료 상태면 `status.lastModified`(Asia/Seoul, `YYYY-MM-DD`), 미완료면 `–`. 기한 값으로 채우지 않는다.
 - 어플리케이션이 다중선택(2개 이상)인 업무는 **1개 row**로 표시하고, 어플리케이션 칸에 값을 쉼표로 이어 적는다(예: `GDS, ADMIN`, 필드의 선택지 순서 기준).
-- 다중선택 업무에 하위 업무가 있으면 그 하위 업무들도 표1에 표시한다. 하위 업무 행은 항목명 앞에 `└ `를 붙여 상위 업무와 구분한다.
+- 다중선택 업무에 하위 업무가 있으면 그 하위 업무들도 표1에 표시한다. 하위 업무 행은 구분=`하위`로 표시하고, 항목명 앞에도 `└ `를 붙여 시각적으로 구분한다. 어플리케이션이 1개인 업무의 하위 업무는 표1에 넣지 않는다.
 
 ### 정렬
 1. 상위 업무(관련 리소스 항목)끼리 먼저 정렬한다: 어플리케이션 → 유형 → 항목명 오름차순. 다중선택 업무는 쉼표로 이은 문자열 그대로를 정렬 키로 쓴다. "미지정"은 해당 정렬 레벨에서 맨 뒤.
@@ -78,6 +87,12 @@ project.worksmobile.com은 사내 인증이 필요한 시스템이라 `WebFetch`
 - 마지막 행: `COUNT`
 - 총합/소계 행은 만들지 않는다. 사용자가 스프레드시트에서 직접 수식으로 계산하는 것을 전제로 순수 카운트 값만 제공한다.
 - 마크다운 표로 출력한다.
+
+## 엑셀 다운로드 요청 시
+
+- 시트 1 `리스트`: 표1과 같은 컬럼 순서(구분 포함), 헤더 고정·필터, 하위 업무 행은 옅은 회색 배경.
+- 시트 2 `카운트`: 표2 피벗(어플리케이션 헤더는 셀 병합), 아래에 집계 기준 메모.
+- 파일명 예: `2026-10-28_정기배포_관련리소스.xlsx`.
 
 ## 출력 후 짧은 메모
 
