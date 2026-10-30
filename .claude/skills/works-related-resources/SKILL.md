@@ -1,5 +1,5 @@
 ---
-name: "deploy-list-management"
+name: "works-related-resources"
 description: LINE Works Project(project.worksmobile.com, 단축링크 works.do)의 업무(task) 링크 하나를 받아, 그 업무에 "관련 리소스"로 연결된 업무들을 뽑아 정해진 포맷의 표 두 개(상세 리스트 + 어플리케이션×유형 카운트 매트릭스)로 정리한다. 사용자가 works.do 링크나 project.worksmobile.com 링크를 주면서 "관련 리소스 정리해줘", "배포 목록 뽑아줘", "유형별/완료여부/처리자 정리해줘", "애플리케이션별 카운트 내줘" 같은 요청을 하면 반드시 이 스킬을 사용한다. 링크만 던지고 별다른 설명이 없어도, 그 링크가 LINE Works Project 도메인이면 이 스킬이 적용 대상이다.
 ---
 
