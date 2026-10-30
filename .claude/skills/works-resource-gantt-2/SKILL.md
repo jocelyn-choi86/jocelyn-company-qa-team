@@ -16,7 +16,7 @@ description: "LINE Works Project(works.do) 링크 하위 미완료 상위/하위
 - **제외 프로젝트**: 프로젝트명(공백 제거 후)에 `배포리스트관리`가 포함된 프로젝트는 추출 대상에서 제외한다. 그 프로젝트의 업무는 수집하지 않고, 다른 프로젝트에 함께 연결된 업무라도 `mainProjectId`가 제외 프로젝트면 뺀다. 세 시트(현황표·대상 업무 목록·기간 미설정)와 범례 모두에 나오지 않는다.
 - **완료 판정**: 업무의 **[완료] 체크** 기준 = `status.taskStatusType === 'CLOSE'`. 그 외(`OPEN` 등)는 모두 미완료. 커스텀 필드 진행상태/상태 값(예: "배포완료")으로 완료를 판정하지 않는다.
 - **완료 업무 포함**: [완료](`CLOSE`) 업무도 기간이 **표시 범위와 하루라도 겹치면**(`종료일 >= 표시 시작일` 그리고 `시작일 <= 표시 종료일`) 사람 행에 넣는다. 업무 텍스트 앞에 `[완료] `를 붙이고 회색 글씨, 막대는 빗금. 기간 미설정 영역과 처리자 미지정 영역에는 미완료(OPEN) 업무만 넣는다. `deleted`/`binned` 제외. 프로젝트 조회 404는 삭제된 프로젝트로 건너뜀.
-- **상태 표시**: [완료](`CLOSE`) 업무는 커스텀 필드 값과 관계없이 항상 `완료`. 미완료 업무는 프로젝트 커스텀 필드 중 `fieldName`에서 공백·`*`를 뺀 이름이 `진행상태`인 필드("진행 상태"/"진행상태"), 없으면 `상태`인 필드의 선택값 라벨을 표시하고, 필드가 없거나 값이 비어 있으면 `진행중`. 이름은 정확히 일치로 비교한다(부분일치 금지). 필드 정의는 `customFields[].fieldId`로 값(`customFieldValues[].fieldId`)과 매칭하고 `selectItems`의 `id → value`로 라벨을 얻는다.
+- **상태 표시**: `완료(진행 상태)` / `진행중(진행 상태)` 형식. 앞부분 완료/진행중은 **오직 `status.taskStatusType === 'CLOSE'`([완료] 체크)** 로 정한다(CLOSE면 `완료`, 그 외 `진행중`). 괄호 안은 커스텀 필드 **진행 상태** 값: 프로젝트 customFields 중 `fieldName`에서 공백·`*`를 뺀 이름이 `진행상태`인 필드("진행 상태"/"진행상태"), 없으면 `상태`인 필드의 선택값 라벨. 이름은 정확히 일치로 비교한다(부분일치 금지). 필드 정의는 `customFields[].fieldId`로 값(`customFieldValues[].fieldId`)과 매칭하고 `selectItems`의 `id → value`로 라벨을 얻는다. 커스텀 필드가 없거나 값이 비어 있으면 괄호 없이 `완료` / `진행중`만. 예: `완료(배포완료)`, `진행중(개발중)`, `진행중(배포완료)`(필드는 완료인데 [완료] 체크 안 됨), `진행중`.
 - **정렬**: 사람별로 **시작일 → 종료일 빠른 순**, 같으면 미완료 먼저.
 - **행 배치**: 시작일 기준 정렬 순서대로 넣되 **업무(항목)마다 행을 하나씩 각각 사용**한다. 기간이 겹치지 않아도 같은 행에 이어 붙이지 않는다(사람별 일정 행 수 = 그 사람의 일정 있는 업무 수).
 - **이름 병합**: 한 사람의 여러 행은 부서명/주 업무/이름 칸을 세로 병합. 부서명은 부서 전체 행 병합.
@@ -78,7 +78,7 @@ const stv=e=>{for(const x of e.in){const s=sid[x.p];if(!s)continue;const v=(x.cf
 const live=Object.values(T).filter(e=>!e.t.deleted&&!e.t.binned&&!X.has(e.t.mainProjectId));
 const rows=[],nod=[];
 live.forEach(e=>{const t=e.t;const done=t.status?.taskStatusType==='CLOSE'; /* [완료] 체크 */const s=d10(t.due?.start)||d10(t.due?.end),en=d10(t.due?.end)||d10(t.due?.start);const pr=proc(e);
- const base={lv:t.parentTaskId?'하위':'상위',p:P[t.mainProjectId]?.name||P[e.in[0].p]?.name,par:t.parentTaskId?(T[t.parentTaskId]?.t.title||''):'',ti:t.title.trim(),pr,as:(t.assignees||[]).map(a=>a.assigneeId),st:done?'완료':(stv(e)||'진행중'),done};
+ const base={lv:t.parentTaskId?'하위':'상위',p:P[t.mainProjectId]?.name||P[e.in[0].p]?.name,par:t.parentTaskId?(T[t.parentTaskId]?.t.title||''):'',ti:t.title.trim(),pr,as:(t.assignees||[]).map(a=>a.assigneeId),st:(v=>(done?'완료':'진행중')+(v?`(${v})`:''))(stv(e)),done};
  if(!en){if(!done&&pr.length)nod.push(base);return;}
  if(done?(en<DS||s>DE):en<BASE)return; rows.push({...base,s,en});});
 const ids=new Set();[...rows,...nod].forEach(r=>[...r.pr,...r.as].forEach(i=>ids.add(i)));
@@ -98,7 +98,7 @@ g.stat=`range=${DS}~${DE} np=${projs.length} n404=${n404} excl=${X.size} rows=${
 
 ## 엑셀 생성 (openpyxl, 시트 3개)
 ### 시트1 `인력 투입 현황`
-- 열: A 부서명 / B 주 업무 / C 이름 / D 유형(너비 6) / E 할당 업무(너비 58) / F 기간(너비 13) / G 상태(너비 10) / H~ 날짜(너비 6.5). 1~2행 헤더(A~G는 세로 병합, 회색 `EDEDED`).
+- 열: A 부서명 / B 주 업무 / C 이름 / D 유형(너비 6) / E 할당 업무(너비 58) / F 기간(너비 13) / G 상태(너비 16) / H~ 날짜(너비 6.5). 1~2행 헤더(A~G는 세로 병합, 회색 `EDEDED`).
 - 날짜 범위: 표시 범위(기준일이 속한 주의 **전 주 월요일**부터 7주, 일요일까지). 1행 주차 라벨(월~일 병합, `D9F2D0`), 2행 `M/D`. 주말·공휴일 헤더는 `F8CBAD`, 본문은 `FBEDEE`.
 - 주차 라벨은 사용자 양식 관례를 따른다(예: 9/28주=`9M 5W`, 10/5=`10M 1W` … 10/26=`10M 4W`, 11/2=`11M 1W`). 양식에 오타(중복 라벨)가 있으면 바로잡고 보고.
 - 기준일 열 왼쪽에 빨간 굵은 세로선(`FF0000`, medium).
